@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+import 'services/api_service.dart';
 
 void main() {
   runApp(const RizzApp());
@@ -756,23 +755,16 @@ class _RizzGeneratorScreenState extends State<RizzGeneratorScreen> {
 
   Future<void> _callBackend() async {
     try {
-      final response = await http.post(
-        Uri.parse('http://localhost:8000/generate'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'tone': selectedTone,
-          'context': selectedContext,
-          'details': _detailsController.text,
-        }),
-      ).timeout(const Duration(seconds: 15));
+      final data = await ApiService.generateRizz(
+        tone: selectedTone,
+        context: selectedContext,
+        details: _detailsController.text,
+      );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        setState(() {
-          results = [data['message'], _getAnotherSample()];
-          isLoading = false;
-        });
-      }
+      setState(() {
+        results = [data['message'], _getAnotherSample()];
+        isLoading = false;
+      });
     } catch (e) {
       // Use samples
       _useSamples();
@@ -966,18 +958,13 @@ class _MessageRewriterScreenState extends State<MessageRewriterScreen> {
     });
 
     try {
-      final response = await http.post(
-        Uri.parse('http://localhost:8000/rewrite'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({'message': _messageController.text}),
-      ).timeout(const Duration(seconds: 15));
+      final data = await ApiService.rewriteMessage(
+        message: _messageController.text,
+      );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        setState(() {
-          variations = Map<String, String>.from(data['variations'] ?? {});
-        });
-      }
+      setState(() {
+        variations = Map<String, String>.from(data['variations'] ?? {});
+      });
     } catch (e) {
       // Fallback
       setState(() {
@@ -1226,18 +1213,13 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
     });
 
     try {
-      final response = await http.post(
-        Uri.parse('http://localhost:8000/analyze'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({'chat': _chatController.text}),
-      ).timeout(const Duration(seconds: 15));
+      final data = await ApiService.analyzeChat(
+        chat: _chatController.text,
+      );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        setState(() {
-          analysis = data;
-        });
-      }
+      setState(() {
+        analysis = data;
+      });
     } catch (e) {
       // Smart fallback analysis
       final chat = _chatController.text.toLowerCase();
