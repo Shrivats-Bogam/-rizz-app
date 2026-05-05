@@ -25,78 +25,7 @@ class RizzKeyboardApp extends StatelessWidget {
           surface: Color(0xFF1A1A24),
         ),
       ),
-      initialRoute: '/',
-      routes: {
-        '/': (context) => const LauncherScreen(),
-        '/keyboard': (context) => const KeyboardMainScreen(),
-      },
-      builder: (context, child) {
-        // If we are a keyboard, we want to route to /keyboard immediately.
-        // We can detect this by checking if we are embedded. But for simplicity
-        // in Flutter view embedded within an InputMethodService, we can just use
-        // a mechanism or route. The easiest is to just have the initial route be
-        // controlled or just use a default layout. Wait, since Android embeds it,
-        // it will just launch '/'. Let's actually check if it's the keyboard service.
-        // For now, we'll leave routing and maybe set a transparent background for keyboard.
-        return child!;
-      },
-    );
-  }
-}
-
-class LauncherScreen extends StatelessWidget {
-  const LauncherScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Rizz Keyboard Settings')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              '1. Enable Rizz Keyboard',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            ElevatedButton(
-              onPressed: () {
-                // Open input method settings
-                const MethodChannel('rizz_keyboard').invokeMethod('openSettings');
-              },
-              child: const Text('Open Settings'),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              '2. Select Rizz Keyboard',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            const Text('Tap the keyboard icon in the bottom right of your screen when typing to select Rizz Keyboard.'),
-            const SizedBox(height: 24),
-            const Text(
-              '3. Test it out',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            const TextField(
-              decoration: InputDecoration(
-                hintText: 'Tap here to type...',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const Spacer(),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pushNamed(context, '/keyboard');
-              },
-              child: const Text('Preview Keyboard UI'),
-            )
-          ],
-        ),
-      ),
+      home: const KeyboardMainScreen(),
     );
   }
 }
@@ -109,14 +38,10 @@ class KeyboardMainScreen extends StatefulWidget {
 }
 
 class _KeyboardMainScreenState extends State<KeyboardMainScreen> {
-  String _currentTextContext = '';
+  final TextEditingController _inputController = TextEditingController();
   List<String> _suggestions = [];
   String _selectedTone = 'funny';
   bool _showKeyboard = true;
-  bool _isShifted = false;
-  bool _showSymbols = false;
-
-  static const MethodChannel _channel = MethodChannel('rizz_keyboard');
 
   final List<String> _tones = ['funny', 'smooth', 'savage', 'cute', 'mysterious'];
   final List<Map<String, String>> _quickReplies = [
@@ -131,25 +56,15 @@ class _KeyboardMainScreenState extends State<KeyboardMainScreen> {
   @override
   void initState() {
     super.initState();
-    _channel.setMethodCallHandler(_handleMethodCall);
+    _inputController.addListener(_onTextChanged);
   }
 
-  Future<dynamic> _handleMethodCall(MethodCall call) async {
-    switch (call.method) {
-      case 'updateTextContext':
-        final text = call.arguments['text'] as String?;
-        if (text != null && text != _currentTextContext) {
-          setState(() {
-            _currentTextContext = text;
-          });
-          _getSuggestions();
-        }
-        break;
-    }
+  void _onTextChanged() {
+    _getSuggestions();
   }
 
   Future<void> _getSuggestions() async {
-    final text = _currentTextContext;
+    final text = _inputController.text;
     if (text.isEmpty) {
       setState(() => _suggestions = []);
       return;
@@ -198,38 +113,77 @@ class _KeyboardMainScreenState extends State<KeyboardMainScreen> {
     return fallbacks[_selectedTone] ?? ["Nice! 👍", "Okay 👍", "Sure 👍"];
   }
 
-  void _insertText(String text) {
-    _channel.invokeMethod('insertText', {'text': text});
-    if (_isShifted) {
-      setState(() {
-        _isShifted = false;
-      });
+  void _insertSuggestion(String text) {
+    final currentText = _inputController.text;
+    final selection = _inputController.selection;
+
+    String newText;
+    int newCursorPos;
+
+    if (selection.isValid && selection.start > 0) {
+      newText = currentText.substring(0, selection.start) + text + currentText.substring(selection.end);
+      newCursorPos = selection.start + text.length;
+    } else {
+      newText = currentText + text;
+      newCursorPos = newText.length;
+    }
+
+    _inputController.text = newText;
+    _inputController.selection = TextSelection.collapsed(offset: newCursorPos);
+  }
+
+  void _insertEmoji(String emoji) {
+    final currentText = _inputController.text;
+    final selection = _inputController.selection;
+
+    if (selection.isValid) {
+      final newText = currentText.substring(0, selection.start) + emoji + currentText.substring(selection.end);
+      _inputController.text = newText;
+      _inputController.selection = TextSelection.collapsed(offset: selection.start + emoji.length);
+    } else {
+      _inputController.text = currentText + emoji;
     }
   }
 
   void _deleteBackward() {
-    _channel.invokeMethod('deleteBackward');
+    final text = _inputController.text;
+    final selection = _inputController.selection;
+
+    if (selection.isValid && selection.start > 0) {
+      final newText = text.substring(0, selection.start - 1) + text.substring(selection.end);
+      _inputController.text = newText;
+      _inputController.selection = TextSelection.collapsed(offset: selection.start - 1);
+    } else if (text.isNotEmpty) {
+      _inputController.text = text.substring(0, text.length - 1);
+    }
+  }
+
+  @override
+  void dispose() {
+    _inputController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          _buildSuggestionBar(),
-          _buildToneSelector(),
-          if (_showKeyboard) _buildKeyboard(),
-        ],
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildSuggestionBar(),
+            _buildToneSelector(),
+            _buildInputField(),
+            if (_showKeyboard) _buildKeyboard(),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildSuggestionBar() {
     return Container(
-      height: 50,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      height: 60,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: const BoxDecoration(
         color: Color(0xFF1A1A24),
         border: Border(bottom: BorderSide(color: Color(0xFF2D2D3A))),
@@ -248,7 +202,7 @@ class _KeyboardMainScreenState extends State<KeyboardMainScreen> {
                       return Padding(
                         padding: const EdgeInsets.only(right: 8),
                         child: GestureDetector(
-                          onTap: () => _insertText(_suggestions[index] + " "),
+                          onTap: () => _insertSuggestion(_suggestions[index]),
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             decoration: BoxDecoration(
@@ -271,6 +225,10 @@ class _KeyboardMainScreenState extends State<KeyboardMainScreen> {
                     },
                   ),
           ),
+          IconButton(
+            icon: Icon(_showKeyboard ? Icons.keyboard_hide : Icons.keyboard, color: const Color(0xFF8B5CF6)),
+            onPressed: () => setState(() => _showKeyboard = !_showKeyboard),
+          ),
         ],
       ),
     );
@@ -278,9 +236,8 @@ class _KeyboardMainScreenState extends State<KeyboardMainScreen> {
 
   Widget _buildToneSelector() {
     return Container(
-      height: 40,
+      height: 44,
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      color: const Color(0xFF1A1A24),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: _tones.length,
@@ -295,18 +252,21 @@ class _KeyboardMainScreenState extends State<KeyboardMainScreen> {
               });
             },
             child: Container(
-              margin: const EdgeInsets.only(right: 8, top: 4, bottom: 4),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFF8B5CF6) : const Color(0xFF2D2D3A),
-                borderRadius: BorderRadius.circular(16),
+                color: isSelected ? const Color(0xFF8B5CF6) : const Color(0xFF1A1A24),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isSelected ? const Color(0xFF8B5CF6) : const Color(0xFF374151),
+                ),
               ),
               child: Center(
                 child: Text(
                   tone.toUpperCase(),
                   style: TextStyle(
                     color: isSelected ? Colors.white : const Color(0xFF9CA3AF),
-                    fontSize: 11,
+                    fontSize: 12,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -318,57 +278,43 @@ class _KeyboardMainScreenState extends State<KeyboardMainScreen> {
     );
   }
 
-  Widget _buildKeyboard() {
-    if (_showSymbols) {
-      return _buildSymbolKeyboard();
-    }
-    return _buildAlphaKeyboard();
-  }
-
-  Widget _buildAlphaKeyboard() {
+  Widget _buildInputField() {
     return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: const BoxDecoration(
-        color: Color(0xFF0A0A0F),
+      margin: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A24),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF2D2D3A)),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              _buildKey('q'), _buildKey('w'), _buildKey('e'), _buildKey('r'), _buildKey('t'),
-              _buildKey('y'), _buildKey('u'), _buildKey('i'), _buildKey('o'), _buildKey('p'),
-            ],
+          TextField(
+            controller: _inputController,
+            maxLines: 4,
+            minLines: 2,
+            style: const TextStyle(color: Colors.white, fontSize: 16),
+            decoration: const InputDecoration(
+              hintText: 'Type your message...',
+              hintStyle: TextStyle(color: Color(0xFF6B7280)),
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.zero,
+            ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           Row(
+            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              const Spacer(flex: 1),
-              _buildKey('a'), _buildKey('s'), _buildKey('d'), _buildKey('f'), _buildKey('g'),
-              _buildKey('h'), _buildKey('j'), _buildKey('k'), _buildKey('l'),
-              const Spacer(flex: 1),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              _buildActionKey(_isShifted ? '⬆' : '⇧', () {
-                setState(() => _isShifted = !_isShifted);
-              }, flex: 3),
-              _buildKey('z'), _buildKey('x'), _buildKey('c'), _buildKey('v'),
-              _buildKey('b'), _buildKey('n'), _buildKey('m'),
-              _buildActionKey('⌫', _deleteBackward, flex: 3),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              _buildActionKey('?123', () {
-                setState(() => _showSymbols = true);
-              }, flex: 3),
-              _buildActionKey(',', () => _insertText(','), flex: 2),
-              _buildActionKey('space', () => _insertText(' '), flex: 10),
-              _buildActionKey('.', () => _insertText('.'), flex: 2),
-              _buildActionKey('⏎', () => _insertText('\n'), flex: 3),
+              IconButton(
+                icon: const Icon(Icons.send, color: Color(0xFF8B5CF6)),
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: _inputController.text));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Copied! Paste in your chat'), duration: Duration(seconds: 2)),
+                  );
+                },
+              ),
             ],
           ),
         ],
@@ -376,46 +322,52 @@ class _KeyboardMainScreenState extends State<KeyboardMainScreen> {
     );
   }
 
-  Widget _buildSymbolKeyboard() {
+  Widget _buildKeyboard() {
     return Container(
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.all(8),
       decoration: const BoxDecoration(
-        color: Color(0xFF0A0A0F),
+        color: Color(0xFF121218),
+        border: Border(top: BorderSide(color: Color(0xFF2D2D3A))),
       ),
       child: Column(
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildKey('1'), _buildKey('2'), _buildKey('3'), _buildKey('4'), _buildKey('5'),
-              _buildKey('6'), _buildKey('7'), _buildKey('8'), _buildKey('9'), _buildKey('0'),
+              _buildKey('😀'), _buildKey('😂'), _buildKey('🥰'),
+              _buildKey('🔥'), _buildKey('😏'), _buildKey('😊'),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildKey('@'), _buildKey('#'), _buildKey('\$'), _buildKey('_'), _buildKey('&'),
-              _buildKey('-'), _buildKey('+'), _buildKey('('), _buildKey(')'), _buildKey('/'),
+              _buildKey('✨'), _buildKey('💕'), _buildKey('👍'),
+              _buildKey('🙌'), _buildKey('💫'), _buildKey('👀'),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildActionKey('=\\<', () {}, flex: 3),
-              _buildKey('*'), _buildKey('"'), _buildKey('\''), _buildKey(':'),
-              _buildKey(';'), _buildKey('!'), _buildKey('?'),
-              _buildActionKey('⌫', _deleteBackward, flex: 3),
+              _buildKey('🎯'), _buildKey('💯'), _buildKey('🤔'),
+              _buildKey('🥺'), _buildKey('😈'), _buildKey('🔮'),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 12),
           Row(
             children: [
               _buildActionKey('ABC', () {
-                setState(() => _showSymbols = false);
-              }, flex: 3),
-              _buildActionKey(',', () => _insertText(','), flex: 2),
-              _buildActionKey('space', () => _insertText(' '), flex: 10),
-              _buildActionKey('.', () => _insertText('.'), flex: 2),
-              _buildActionKey('⏎', () => _insertText('\n'), flex: 3),
+                // Could switch to full keyboard
+              }, flex: 2),
+              const SizedBox(width: 4),
+              _buildActionKey('🌐', () {
+                // Switch language
+              }, flex: 1),
+              const SizedBox(width: 4),
+              _buildActionKey('⌫', _deleteBackward, flex: 1),
+              const SizedBox(width: 4),
+              _buildActionKey('⏎', () => _insertSuggestion('\n'), flex: 2),
             ],
           ),
         ],
@@ -423,53 +375,36 @@ class _KeyboardMainScreenState extends State<KeyboardMainScreen> {
     );
   }
 
-  Widget _buildKey(String label) {
-    final displayLabel = _isShifted ? label.toUpperCase() : label;
-    return Expanded(
-      flex: 2,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 2.0),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => _insertText(displayLabel),
-            borderRadius: BorderRadius.circular(6),
-            child: Container(
-              height: 46,
-              decoration: BoxDecoration(
-                color: const Color(0xFF2D2D3A),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Center(
-                child: Text(displayLabel, style: const TextStyle(fontSize: 20, color: Colors.white)),
-              ),
-            ),
-          ),
+  Widget _buildKey(String emoji) {
+    return GestureDetector(
+      onTap: () => _insertEmoji(emoji),
+      child: Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A24),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Center(
+          child: Text(emoji, style: const TextStyle(fontSize: 24)),
         ),
       ),
     );
   }
 
-  Widget _buildActionKey(String label, VoidCallback onTap, {int flex = 2}) {
+  Widget _buildActionKey(String label, VoidCallback onTap, {int flex = 1}) {
     return Expanded(
       flex: flex,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 2.0),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(6),
-            child: Container(
-              height: 46,
-              decoration: BoxDecoration(
-                color: const Color(0xFF1A1A24),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Center(
-                child: Text(label, style: const TextStyle(fontSize: 16, color: Colors.white)),
-              ),
-            ),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          height: 48,
+          decoration: BoxDecoration(
+            color: const Color(0xFF2D2D3A),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Center(
+            child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 14)),
           ),
         ),
       ),
