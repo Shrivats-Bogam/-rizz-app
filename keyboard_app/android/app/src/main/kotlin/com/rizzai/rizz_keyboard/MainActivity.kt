@@ -1,4 +1,4 @@
-package com.rizzai.keyboard_app
+package com.rizzai.rizz_keyboard
 
 import io.flutter.embedding.android.FlutterActivity
 

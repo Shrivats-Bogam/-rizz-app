@@ -1,4 +1,4 @@
-package com.rizzai.keyboard_app
+package com.rizzai.rizz_keyboard
 
 import android.content.Context
 import android.util.AttributeSet
