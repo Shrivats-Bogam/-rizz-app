@@ -116,10 +116,10 @@ class _KeyboardMainScreenState extends State<KeyboardMainScreen> {
   void _insertSuggestion(String text) {
     final currentText = _inputController.text;
     final selection = _inputController.selection;
-    
+
     String newText;
     int newCursorPos;
-    
+
     if (selection.isValid && selection.start > 0) {
       newText = currentText.substring(0, selection.start) + text + currentText.substring(selection.end);
       newCursorPos = selection.start + text.length;
@@ -127,7 +127,7 @@ class _KeyboardMainScreenState extends State<KeyboardMainScreen> {
       newText = currentText + text;
       newCursorPos = newText.length;
     }
-    
+
     _inputController.text = newText;
     _inputController.selection = TextSelection.collapsed(offset: newCursorPos);
   }
@@ -135,7 +135,7 @@ class _KeyboardMainScreenState extends State<KeyboardMainScreen> {
   void _insertEmoji(String emoji) {
     final currentText = _inputController.text;
     final selection = _inputController.selection;
-    
+
     if (selection.isValid) {
       final newText = currentText.substring(0, selection.start) + emoji + currentText.substring(selection.end);
       _inputController.text = newText;
@@ -148,7 +148,7 @@ class _KeyboardMainScreenState extends State<KeyboardMainScreen> {
   void _deleteBackward() {
     final text = _inputController.text;
     final selection = _inputController.selection;
-    
+
     if (selection.isValid && selection.start > 0) {
       final newText = text.substring(0, selection.start - 1) + text.substring(selection.end);
       _inputController.text = newText;
@@ -334,7 +334,7 @@ class _KeyboardMainScreenState extends State<KeyboardMainScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildKey('😀'), _buildKey('😂'), _buildKey('🥰'), 
+              _buildKey('😀'), _buildKey('😂'), _buildKey('🥰'),
               _buildKey('🔥'), _buildKey('😏'), _buildKey('😊'),
             ],
           ),
@@ -342,7 +342,7 @@ class _KeyboardMainScreenState extends State<KeyboardMainScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildKey('✨'), _buildKey('💕'), _buildKey('👍'), 
+              _buildKey('✨'), _buildKey('💕'), _buildKey('👍'),
               _buildKey('🙌'), _buildKey('💫'), _buildKey('👀'),
             ],
           ),
@@ -350,7 +350,7 @@ class _KeyboardMainScreenState extends State<KeyboardMainScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildKey('🎯'), _buildKey('💯'), _buildKey('🤔'), 
+              _buildKey('🎯'), _buildKey('💯'), _buildKey('🤔'),
               _buildKey('🥺'), _buildKey('😈'), _buildKey('🔮'),
             ],
           ),

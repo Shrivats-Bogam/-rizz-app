@@ -17,14 +17,14 @@ class FlutterKeyboardView @JvmOverloads constructor(
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0
 ) : View(context, attrs, defStyleAttr) {
-    
+
     private var methodChannel: MethodChannel? = null
-    
+
     fun setMethodChannel(channel: MethodChannel) {
         this.methodChannel = channel
         setupMethodCallHandler()
     }
-    
+
     private fun setupMethodCallHandler() {
         methodChannel?.setMethodCallHandler { call, result ->
             when (call.method) {
@@ -44,16 +44,16 @@ class FlutterKeyboardView @JvmOverloads constructor(
             }
         }
     }
-    
+
     override fun onCheckIsTextEditor(): Boolean = true
-    
+
     override fun onCreateInputConnection(outAttrs: EditorInfo): android.view.inputmethod.InputConnection? {
         outAttrs.inputType = android.text.InputType.TYPE_CLASS_TEXT
         outAttrs.imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_DONE or
                 android.view.inputmethod.EditorInfo.IME_FLAG_NO_FULLSCREEN
         return null
     }
-    
+
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         when (keyCode) {
             KeyEvent.KEYCODE_DEL -> {
@@ -75,7 +75,7 @@ class RizzKeyboardViewFactory(private val flutterEngine: FlutterEngine) : Platfo
             override fun getView(): View {
                 return FlutterKeyboardView(context, flutterEngine)
             }
-            
+
             override fun dispose() {}
         }
     }
