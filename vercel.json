@@ -1,15 +1,7 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "keyboard_app/**",
-      "use": "@vercel/static"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "keyboard_app/$1"
-    }
-  ]
+  "build": {
+    "command": "cd keyboard_app && flutter build web",
+    "outputDirectory": "keyboard_app/build/web"
+  },
+  "framework": null
 }
