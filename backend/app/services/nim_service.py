@@ -266,8 +266,16 @@ class NIMService:
             base_interest = 0.35
         
         # Count messages
-        other_msgs = sum(1 for l in lines if l.strip() and not l.strip().startswith('You:'))
-        your_msgs = sum(1 for l in lines if l.strip().startswith('You:'))
+        other_msgs = 0
+        your_msgs = 0
+        for l in lines:
+            stripped = l.strip()
+            if not stripped:
+                continue
+            if stripped.startswith('You:'):
+                your_msgs += 1
+            else:
+                other_msgs += 1
         
         if your_msgs > other_msgs * 2:
             base_interest -= 0.15
