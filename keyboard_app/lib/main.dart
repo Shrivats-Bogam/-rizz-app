@@ -72,7 +72,7 @@ class _KeyboardMainScreenState extends State<KeyboardMainScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse('http://10.0.2.2:8000/generate'),
+        Uri.parse('https://rizz-backend-gwkk.onrender.com/generate'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'tone': _selectedTone,
